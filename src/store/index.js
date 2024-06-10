@@ -1,7 +1,6 @@
 import { defineStore } from 'pinia';
 
-export const useTodoStore = defineStore({
-  id: 'todo',
+export const useTodoStore = defineStore('todo', {
   state: () => ({
     todos: []
   }),
@@ -30,9 +29,8 @@ export const useTodoStore = defineStore({
 });
 
 // Watcher untuk menyimpan state ke localStorage
-const store = useTodoStore();
-store.$subscribe((mutation, state) => {
-  localStorage.setItem('todos', JSON.stringify(state.todos));
-});
-
-export default useTodoStore; // tambahkan ini jika Anda ingin mengimpor store ini secara default
+export const watchTodos = (store) => {
+  store.$subscribe((mutation, state) => {
+    localStorage.setItem('todos', JSON.stringify(state.todos));
+  });
+};
