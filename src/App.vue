@@ -1,200 +1,169 @@
-<script setup>
-import { ref, onMounted, computed, watch } from 'vue'
-
-const todos = ref([])
-const name = ref('')
-const input_content = ref('')
-const post_title = ref('')
-const users = ref([])  // To store fetched users
-const filtered_users = ref([])  // To store filtered users for the dropdown
-const show_dropdown = ref(false)
-const selected_user = ref(null)  // To store the selected user
-
-const todos_asc = computed(() => {
-    return todos.value.slice().sort((a, b) => a.createdAt - b.createdAt)
-})
-
-watch(name, (newVal) => {
-    localStorage.setItem('name', newVal)
-})
-
-watch(todos, (newVal) => {
-    localStorage.setItem('todos', JSON.stringify(newVal))
-}, {
-    deep: true
-})
-
-const addTodo = () => {
-    if (input_content.value.trim() === '') {
-        return
-    }
-
-    todos.value.push({
-        id: Date.now(),
-        content: input_content.value,
-        done: false,
-        editable: false,
-        createdAt: new Date().getTime()
-    })
-    input_content.value = ''
-}
-
-const addPost = () => {
-    if (selected_user.value) {
-        todos.value.push({
-            id: selected_user.value.id,
-            content: `${selected_user.value.name}`,
-            done: false,
-            editable: false,
-            createdAt: new Date().getTime()
-        })
-        post_title.value = ''
-        selected_user.value = null
-        show_dropdown.value = false
-    }
-}
-
-const removeTodo = (todo) => {
-    todos.value = todos.value.filter((t) => t.id !== todo.id)
-}
-
-const toggleLineThrough = (todo) => {
-    todo.done = !todo.done
-}
-
-const fetchUsers = () => {
-    fetch('https://jsonplaceholder.typicode.com/users')
-        .then(response => response.json())
-        .then(data => {
-            users.value = data
-        })
-        .catch(error => {
-            console.error('Error fetching users:', error)
-        })
-}
-
-const filterUsers = (query) => {
-    if (query) {
-        filtered_users.value = users.value.filter(user => user.name.toLowerCase().includes(query.toLowerCase()))
-        show_dropdown.value = true
-    } else {
-        show_dropdown.value = false
-    }
-    selected_user.value = null  // Reset selected user when typing
-}
-
-const selectUser = (user) => {
-    post_title.value = user.name
-    selected_user.value = user
-    show_dropdown.value = false
-}
-
-onMounted(() => {
-    name.value = localStorage.getItem('name') || ''
-    const savedTodos = localStorage.getItem('todos')
-    if (savedTodos) {
-        todos.value = JSON.parse(savedTodos)
-    }
-    fetchUsers()
-})
-</script>
-
 <template>
-    <main class="app">
-        <section class="greeting">
-            <h2 class="title">
-                What's up, <input type="text" id="name" placeholder="Name here" v-model="name">
-            </h2>
-        </section>
-
-        <section class="create-todo">
-            <h3>CREATE A TODO</h3>
-
-            <form id="new-todo-form" @submit.prevent="addTodo">
-                <h4>What's on your todo list?</h4>
-                <input 
-                    type="text" 
-                    name="content" 
-                    id="content" 
-                    placeholder="Write your todo"
-                    v-model="input_content" />
-                <input type="submit" value="Add todo" />
-            </form>
-        </section>
-
-        <section class="create-post">
-            <form id="new-post-form" @submit.prevent="addPost">
-                <h3>POST</h3>
-                <input 
-                    type="text" 
-                    name="title" 
-                    id="post-title" 
-                    placeholder="Write your post "
-                    v-model="post_title"
-                    @input="filterUsers(post_title)" />
-                <div v-if="show_dropdown" class="dropdown">
-                    <ul>
-                        <li v-for="user in filtered_users" :key="user.id" @click="selectUser(user)">
-                            {{ user.name }}
-                        </li>
-                    </ul>
-                </div>
-                <input type="submit" value="Add post" />
-            </form>
-        </section>
-
-        <section class="todo-list">
-            <h3>List</h3>
-            <div class="list" id="todo-list">
-                <div 
-                    v-for="todo in todos_asc" 
-                    :key="todo.id" 
-                    class="todo-item"
-                    :class="{ done: todo.done }"
-                    @click="toggleLineThrough(todo)">
-                    <label>
-                        <input type="checkbox" v-model="todo.done" />
-                    </label>
-
-                    <div class="todo-content" :class="{ 'line-through': todo.done }">
-                        {{ todo.content }}
-                    </div>
-
-                    <div class="actions">
-                        <button class="delete" @click="removeTodo(todo)">Delete</button>
-                    </div>
-                </div>
-            </div>
-        </section>
-    </main>
+  <div class="container">
+    <div class="content">
+      <h1>Todo List</h1>
+      <div class="input-container">
+        <input type="text" v-model="newTodo" @keyup.enter="addTodo" placeholder="Add new todo" ref="todoInput">
+        <button @click="addTodo" class="add-btn">Add</button>
+      </div>
+      <ul>
+        <li v-for="(todo, index) in todos" :key="index" class="todo">
+          <input type="checkbox" :checked="todo.completed" @change="toggleTodo(index)">
+          <span :class="{ 'completed-task': todo.completed }">{{ todo.title }}</span>
+          <button @click="removeTodo(index)" class="delete-btn">Delete</button>
+        </li>
+      </ul>
+      <p v-show="todos.length === 0" class="no-todos">No tasks remaining</p>
+      <p class="remaining-todos">{{ remainingTodos }} remaining out of {{ todos.length }} tasks</p>
+    </div>
+  </div>
 </template>
 
+<script>
+export default {
+  data() {
+    return {
+      newTodo: '',
+      todos: []
+    };
+  },
+  computed: {
+    remainingTodos() {
+      return this.todos.filter(todo => !todo.completed).length;
+    }
+  },
+  methods: {
+    addTodo() {
+      if (this.newTodo.trim() !== '') {
+        this.todos.push({
+          title: this.newTodo,
+          completed: false
+        });
+        this.newTodo = '';
+        this.$refs.todoInput.focus();
+      }
+    },
+    removeTodo(index) {
+      this.todos.splice(index, 1);
+    },
+    toggleTodo(index) {
+      this.todos[index].completed = !this.todos[index].completed;
+    }
+  },
+  mounted() {
+    const savedTodos = localStorage.getItem('todos');
+    if (savedTodos) {
+      this.todos = JSON.parse(savedTodos);
+    }
+  },
+  watch: {
+    todos: {
+      handler(newTodos) {
+        localStorage.setItem('todos', JSON.stringify(newTodos));
+      },
+      deep: true
+    }
+  }
+};
+</script>
+
 <style scoped>
-.line-through {
-    text-decoration: line-through;
+
+.container {
+  display: flex;
+  justify-content: center;
+  margin-left: 28rem;
+  min-height: 10rem;
 }
 
-.dropdown {
-    position: absolute;
-    background: white;
-    border: 1px solid #ccc;
-    max-height: 200px;
-    overflow-y: auto;
-    z-index: 1000;
+.content {
+  max-width: 400px;
+  width: 100%;
+  padding: 20px;
+  background-color: #f8f9fa;
+  border-radius: 5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.dropdown ul {
-    list-style: none;
-    padding: 0;
-    margin: 0;
+h1 {
+  font-size: 24px;
+  margin-bottom: 20px;
+  text-align: center;
+  color: black;
 }
 
-.dropdown li {
-    padding: 8px;
-    cursor: pointer;
+.input-container {
+  display: flex;
+  margin-bottom: 20px;
 }
 
-.dropdown li:hover {
-    background-color: #f0f0f0;
+.input-container input[type="text"] {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid #ced4da;
+  border-radius: 5px 0 0 5px;
+  outline: none;
+}
+
+.input-container .add-btn {
+  padding: 10px 15px;
+  background-color: #007bff;
+  color: #fff;
+  border: none;
+  border-radius: 0 5px 5px 0;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.input-container .add-btn:hover {
+  background-color: #0056b3;
+}
+
+ul {
+  list-style-type: none;
+  padding: 0;
+}
+
+.todo input[type="checkbox"] {
+  margin-right: 10px;
+}
+
+.todo span {
+  flex: 1;
+  color: black;
+}
+
+.todo .completed-task {
+  flex: 1;
+  color: black;
+  text-decoration: line-through;
+}
+
+.todo .delete-btn {
+  padding: 5px 10px;
+  background-color: #dc3545;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.todo .delete-btn:hover {
+  background-color: #c82333;
+}
+
+.remaining-todos {
+  font-size: 14px;
+  text-align: right;
+  color: black; 
+}
+
+.no-todos {
+  font-size: 14px;
+  font-style: italic;
+  text-align: center;
+  margin-top: 20px;
+  color: black;
 }
 </style>
